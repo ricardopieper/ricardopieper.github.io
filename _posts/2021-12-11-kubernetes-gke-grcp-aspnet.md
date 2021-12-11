@@ -235,7 +235,7 @@ Other posts are seemingly more thorough, but do not address the issue at all:
 
 [Server behind GCP Load Balancer occalionally gets 502 Server Error, “failed_to_connect_to_backend”](https://stackoverflow.com/questions/63289794/server-behind-gcp-load-balancer-occalionally-gets-502-server-error-failed-to-c)
 
-When you do things in a rush and have to do many context switches in your day, keeping track of everything and give that much attention to detail to what people write can be hard. I think this should be better documented in the GKE guides. As someone who is responsible for the backend services but isn't that much familiar with proxies and load balancing configuration, this can be an unecessarily time consuming endeavor.
+When you do things in a rush and have to do many context switches in your day, keeping track of everything and give that much attention to detail to what people write can be hard. I think this should be better documented in the GKE guides. As someone who is responsible for the backend services but isn't that much familiar with proxies and load balancing configuration, this can be an unnecessarily time consuming endeavor.
 
 Maybe if I had read things more carefully I would have realized this before. But if you're having the same problem as me (`failed_to_connect_to_backend`), there you go: **just do HTTPS all the way, and use a self-signed certificate on the deployment**. 
 Another possible fix is to use nginx, which offers far more flexibility and tons of configurations, and `cert-manager.io` to automatically apply SSL certificates to the ingress, just be aware that this can be overwhelming for a small and inexperienced team.
