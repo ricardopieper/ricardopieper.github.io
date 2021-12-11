@@ -73,7 +73,6 @@ spec:
         env:
           - name: ASPNETCORE_URLS
             value: "http://+:5000;http://+:5001" 
-
         ports:
           - containerPort: 5000 
           - containerPort: 5001
@@ -133,7 +132,7 @@ spec:
 
 ### Ingress definition
 
-To define an ingress, we have a choice to make. We can use a load balancer such as Nginx, or use Google's load balancer. Each one has its pros and cons: Nginx has tons of configurations to choose and is very flexible, while GCE Load balancer is not very configurable. However, due to the size and inexperience of the team regarding backend services, the tradeoff I'm choosing is letting GCE manage most things. The backend is a responsability of the entire company, and everyone should have some knowledge about how it works. Linking a certificate with Nginx automatically would require a ton of configuration with `cert-manager.io`, which would use Letsencrypt to generate a certificate, and renovate it. However, the amount of configuration needed can be overwhelming. Therefore, we chose GCE's load balancer (GCLB) which is the default load balancer on GKE. 
+To define an ingress, we have a choice to make. We can use a load balancer such as Nginx, or use Google's load balancer. Each one has its pros and cons: Nginx has tons of configurations to choose and is very flexible, while GCE Load balancer is not very configurable. However, due to the size and inexperience of the team regarding backend services, the tradeoff I'm choosing is letting GCE manage most things. The backend is a responsability of the entire company, and everyone should have some knowledge about how it works. Linking a certificate with Nginx automatically would require a ton of configuration with `cert-manager.io`, which would use Letsencrypt to generate a certificate, and renew it. However, the amount of configuration needed can be overwhelming. Therefore, we chose GCE's load balancer (GCLB) which is the default load balancer on GKE. 
 
 Therefore, we can just declare a `ManagedCertificate` like this:
 
