@@ -20,7 +20,7 @@ timezone: America/Sao_Paulo
 
 title: Ricardo Pieper                          # the main title
 
-tagline: Ramblings about technology   # it will display as the sub-title
+tagline: Backend software engineer. Knows C#, Rust, Java, Groovy.   # it will display as the sub-title
 
 description: >-                        # used by seo meta and the atom feed
   Backend software engineer, C#, Rust, Java
