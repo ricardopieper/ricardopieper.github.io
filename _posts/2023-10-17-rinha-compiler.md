@@ -52,7 +52,7 @@ This is, of course, a function that just returns its parameter. A tokenizer coul
 ```
 [
   Token::LetKeyword,
-  Token::Identifier("id"),
+  Token::Identifier("add"),
   Token::Operator(Operator::Assign),
   Token::FunctionDeclarationKeyword,
   Token::OpenParen,
