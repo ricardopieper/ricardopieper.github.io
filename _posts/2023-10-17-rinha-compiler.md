@@ -539,7 +539,7 @@ pub enum Value {
 }
 ```
 
-This is 12 bytes. Now Rust chose a 4-byte alignment due to HeapPointer and values inside Closure being 4 bytes. This means we can fit much more Values in CPU cache and they are much faster to copy. Now we are down to 2.9ms from 3.4ms. 17% faster than previous, and 1386% from baseline.
+This is 12 bytes. Now Rust chose a 4-byte alignment due to HeapPointer and values inside Closure being 4 bytes. Notice I also got rid of the Error variant, it was useless. Now we can fit much more Values in CPU cache and they are much faster to copy. Now we are down to 2.9ms from 3.4ms. 17% faster than previous, and 1386% from baseline.
 
 
 
