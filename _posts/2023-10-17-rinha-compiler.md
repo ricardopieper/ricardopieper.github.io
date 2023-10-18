@@ -78,7 +78,7 @@ Anyway, at the end of parsing, you'll end up with a structure similar to this:
 
 ```
 LetExpression {
-  name: "id",
+  name: "add",
   expression:
     FunctionDeclaration {
       parameters: ["x"],
