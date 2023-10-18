@@ -625,7 +625,7 @@ So many optimizations done, everything must be running just fine, right? Well...
 let y = 10;
 let f = fn() { y };
 let y = 20; //shadowed!
-print(y); //should print 10, not 20
+print(f()); //should print 10, not 20
 ```
 
 To my horror it was printing 20 because values weren't being copied into the closure properly. Unfortunately, after fixing it, the performance got much worse, up to 3.4ms. That's a huge setback.
