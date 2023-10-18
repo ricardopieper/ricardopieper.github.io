@@ -553,7 +553,7 @@ We're at 2.5ms, 16% improvement over last, 1624% over baseline.
 
 ## Optimization 9: Frame reuse in TCO
 
-Currently, our TCO implementation just avoids creating a physical call frame on every call inside the recursive function, but it still creates a virtual VM frame. This is unecessary and creates a lot of unecessary allocations. In the end I spent a whole afternoon making it work, but the implementation ended up being really simple: a flag on the call frame that tells whether we should reuse the fame. Then calling the function recursively, we read that flag and simply skip popping and pushing that frame. Only then the trampoliner finishes executing we really pop the frame.
+Currently, our TCO implementation just avoids creating a physical call frame on every call inside the recursive function, but it still creates a virtual VM frame. This is unecessary and creates a lot of unecessary allocations. In the end I spent a whole afternoon making it work, but the implementation ended up being really simple: a flag on the call frame that tells whether we should reuse the fame. Then calling the function recursively, we read that flag and simply skip popping and pushing that frame. Only when the trampoliner finishes executing we really pop the frame.
 
 This reduced the runtime to 2.2ms, 13.6% faster than previous, and 1859% over baseline.
 
@@ -562,7 +562,7 @@ This reduced the runtime to 2.2ms, 13.6% faster than previous, and 1859% over ba
 
 Some functions don't capture values outside of them. However, the interpreter still allocates a closure value for every function, including ones that are frequently called but capture nothing.
 
-When we compile a function, we store it in a vector and pass a slice of this fector to the execution context:
+When we compile a function, we store it in a vector and pass a slice of this vector to the execution context:
 
 ```
 pub struct Closure {
