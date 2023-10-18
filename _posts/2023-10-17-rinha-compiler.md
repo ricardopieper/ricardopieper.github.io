@@ -178,7 +178,7 @@ let v = map("z");
 print(v)
 ```
 
-The inner function `fn(v)` inside `set` takes the current map (represented by the function `m`) by closure. In fact, all `bind` parameters are copied into the closure when `bind` is executed, so you can use closures as a mechanism to hold state. To fetch a value, we just recursively call `m` until we find a closure whose `var` is our target. It's a slow `O(n)` map, for sure, but a map nonetheless.
+The inner function `fn(v)` inside `set` takes the current map (represented by the function `m`) by closure. In fact, all `set` parameters are captured by the inner function when `set` is executed, so you can use closures as a mechanism to hold state. To fetch a value, we just recursively call `m` until we find a closure whose `var` is our target. It's a slow `O(n)` map, for sure, but a map nonetheless.
 
 It's interesting to see how powerful functional programming can be: this language does not have built-in types for lists or maps, and yet we can represent those concepts, albeit not in the most performant way. Nonetheless, this idea was used by one of the competitors to make a `meta rinha` program, which is an interpreter built in the Rinha language itself. In fact, the example above comes almost straight from the meta rinha program, I just changed the names. I used meta rinha to find bugs with closures in my interpreter. I think an interpreter that runs another interpreter is a good quick measure for correctness, everything else in the interpreter is simpler than closure handling. This is an example of a meta-rinha program:
 
