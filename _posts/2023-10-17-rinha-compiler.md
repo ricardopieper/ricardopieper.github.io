@@ -5,26 +5,26 @@ author:
   link: https://github.com/ricardopieper
 date: 2023-10-17 12:00:00 -0300
 categories: [Rust, Interpreters]
-tags: [rust, interpreters, treewalker, bytecode, virtual machine]
+tags: [rust, interpreters, tree walker, bytecode, virtual machine]
 pin: true
 ---
 
-In September 2023, one of the most anticipated events in Brazil took place: the "Rinha de Compiladores". This is translated roughly to "Compiler Battle", "Compiler Bout", or "Compiler Fight". If you don't speak portuguese, "rinha" is pronounced like "rinya" and not "rin haa", the `nh` is pronounced like `ñ` in spanish. This is part of an ongoing series of Rinhas. The previous one was a backend-focused competition to see which implementation of a simple HTTP API was the fastest. As of the time of writing this text, the Rinha Frontend is taking place, where the goal is to render a huge JSON with many thousands of elements in a tree-viewer-like structure in the least amount of time. The compiler rinha was actually more of a interpreter one, as there were very few compilers (or transpilers).
+In September 2023, one of the most anticipated events in Brazil took place: the "Rinha de Compiladores". This is translated roughly to "Compiler Battle", "Compiler Bout", or "Compiler Fight". If you don't speak Portuguese, "rinha" is pronounced like "rinya" and not "rin haa", the `nh` is pronounced like `ñ` in Spanish. This is part of an ongoing series of Rinhas. The previous one was a backend-focused competition to see which implementation of a simple HTTP API was the fastest. As of the time of writing this text, the Rinha Frontend is taking place, where the goal is to render a huge JSON with many thousands of elements in a tree-viewer-like structure in the least amount of time. The compiler rinha was actually more of an interpreter one, as there were very few compilers (or transpilers).
 
-The masterminds of the competition are [Gabrielle](https://github.com/aripiprazole) and [Sofia](https://github.com/algebraic-sofia). Gabrielle is a 17 year old girl and Sofia is 21. When I learned about this, I could only remind myself of the time I was 17 years old, playing Counter Strike all day, playing RF Online, and maybe allegedly probably eating spoonfuls of dirt. This was the general feeling of the Rinha discord server. Therefore I'd like to say that, although I have some criticism about how the benchmarks were made, what they pulled off is nothing short of incredible. Hundreds of people engaged in the competition, many of those never wrote an interpreter in their lives, and now they see it's not some sort of 7-headed beast.
+The masterminds of the competition are [Gabrielle](https://github.com/aripiprazole) and [Sofia](https://github.com/algebraic-sofia). Gabrielle is a 17-year-old girl and Sofia is 21. When I learned about this, I could only remind myself of the time I was 17 years old, playing Counter-Strike all day, playing RF Online, and maybe allegedly probably eating spoonfuls of dirt. This was the general feeling of the Rinha Discord server. Therefore I'd like to say that, although I have some criticism about how the benchmarks were made, what they pulled off is nothing short of incredible. Hundreds of people engaged in the competition, many of those had never written an interpreter in their lives, and now they see it's not some sort of 7-headed beast.
 
-There were some very interesting implementations that explicitly didn't go for the #1 prize, but instead were designed to "provide the highest joy to the developer", as did this person: https://github.com/tiagosh/garbash. This entry deserves the Most Based implementation prize, but unfortunately there was no such category.
+Some very interesting implementations explicitly didn't go for the #1 prize. They were designed to "provide the highest joy to the developer", as did [this person](https://github.com/tiagosh/garbash). This entry deserves the Most Based Implementation prize, but unfortunately, there was no such category.
 
-I ended up not winning the competition. This 27x perf improvement mentioned in the title is compared over my initial implementation, and that 27x only happend after the Rinha finished. My submission only had a 18x improvement over the initial implementation. I admit it's a bit of a clickbait title, but all will be clear in the end. You can check the results [clicking here](https://github.com/aripiprazole/rinha-de-compiler/blob/main/TESTS.md). I ended up in 18th out of almost 200 submittions (only about 70 working implementations though lol). However, the benchmarking process had some hiccups and was done in a bit of a rush as the organizers admitted. It could very well be that, if the benchmarks were done in a different way, I could end up even lower in the ranks, but I hope I would finish in a better position.
+I ended up not winning the competition. This 27x perf improvement mentioned in the title is compared to my initial implementation, and that 27x only happened after the Rinha finished. My submission only had a 18x improvement over the initial implementation. I admit it's a bit of a clickbait title, but all will be clear in the end. You can check the results by [clicking here](https://github.com/aripiprazole/rinha-de-compiler/blob/main/TESTS.md). I ended up in 18th out of almost 200 submissions (only about 70 working implementations though lol). However, the benchmarking process had some hiccups and was done in a bit of a rush as the organizers admitted. It could very well be that, if the benchmarks were done differently, I could end up even lower in the ranks, but I hope I would finish in a better position.
 
-Some really good implementations, including some of the fastest ones, did not end up in the top 3. I remember the fastest interpreter made in C following the excellent Crafting Interpreters book finished in 7th place. Some even used LLVM and could not hit the top 5. However, I am happy that the winner Raphael Victal actually had a very good implementation, though I'm biased because we had some similar ideas. My interpreter ended up with a score around 30% less than him, and my interpreter was in fact around 30% slower than his. I am a bit sad with the results, but the reality is that I shouldn't even be on that board, as my submission wouldn't even build 3 minutes before the scores were revealed. Sofia was gracious enough to quickly run my fixed build moments before the reveal livestream, I think I should've been disqualified.
+Some really good implementations, including some of the fastest ones, did not end up in the top 3. I remember the fastest interpreter made in C following the excellent Crafting Interpreters book finished in 7th place. Some even used LLVM and could not hit the top 5. However, I am happy that the winner Raphael Victal actually had a very good implementation, though I'm biased because we had some similar ideas. My interpreter ended up with a score of around 30% less than him, and my interpreter was in fact around 30% slower than his. I am a bit sad with the results, but the reality is that I shouldn't even be on that board, as my submission wouldn't even build 3 minutes before the scores were revealed. Sofia was gracious enough to quickly run my fixed build moments before the reveal livestream, I think I should've been disqualified.
 
 An interpreter usually has 3 phases, as I'm gonna explain in the next paragraphs. Bear in mind that for the Rinha language, we didn't need to write a parser, as the organizers provided a Rust program that would parse the language and spit out the JSON AST. If you don't know what those words mean, don't worry, the next paragraphs explain it.
 
 Interpreter phases
 ==================
 
-To run code, we don't simply get input text and start running/compiling it. Maybe in the past some languages actually did it because resources were so scarce, but nowadays this is not the case. Interpreters and compilers usually have multiple steps where each one gives more and more structure to the input program.
+To run code, we don't simply get input text and start running/compiling it. Maybe in the past, some languages actually did it because resources were so scarce, but nowadays this is not the case. Interpreters and compilers usually have multiple steps and each one gives more and more structure to the input program.
 
 ## Lexer
 
@@ -56,15 +56,15 @@ This is, of course, a function that just returns its parameter. A tokenizer coul
 ]
 ```
 
-In this case, the only string we have is in identifiers. We could have more strings if I used a string literal somewhere. Identifiers are used for variable names, function names, parameter names, type names, everything that identifies something in the program. As for the other tokens, I think they are self explanatory.
+In this case, the only string we have is in identifiers. We could have more strings if I used a string literal somewhere. Identifiers are used for variable names, function names, parameter names, type names, and everything that identifies something in the program. As for the other tokens, I think they are self-explanatory.
 
 That's all a lexer really does. We are now ready for parsing.
 
 ## Parser
 
-In 2023, only a madman would be satisfied with just the tokens, and then just interpret them as is. We need more structure. For that, we build an AST, an abstract syntax tree. This process is so mechanical and boring that there are programs you can use to generate parsers for a language. You describe the grammar, and the language makes a parser for you. I'm not a big fan, but I do see why people use them. Some of these tools are ANTLR, Bison, Flex, lalrpop, and others. You can also write your own Recursive Descent parser, which is described in the Crafting Interpreters book. I really recommend reading this book as it will give you the recipe to build an interpreter.... but I also have to say: It's a lot of fun if you write one in your own way. Then consult the literature to see which mistakes you made. You will never forget how dumb your ideas actually are, and you won't forget about the better idea in the book, or even tricks you didn't realize that could be done.
+In 2023, only a madman would be satisfied with just the tokens, and then just interpret them as is. We need more structure. For that, we build an AST, an abstract syntax tree. This process is so mechanical and boring that there are programs you can use to generate parsers for a language. You describe the grammar, and the language makes a parser for you. I'm not a big fan, but I do see why people use them. Some of these tools are ANTLR, Bison, Flex, LALRPOP, and others. You can also write your own Recursive Descent parser, which is described in the Crafting Interpreters book. I really recommend reading this book as it will give you the recipe to build an interpreter.... but I also have to say: It's a lot of fun if you write one in your own way. Then consult the literature to see which mistakes you made. You will never forget how dumb your ideas actually are, and you won't forget about the better idea in the book or even tricks you didn't realize that could be done.
 
-Anyway, in the end of parsing, you'll end up with a structure similar to this:
+Anyway, at the end of parsing, you'll end up with a structure similar to this:
 
 ```
 LetExpression {
@@ -88,12 +88,12 @@ The astute reader will understand how each piece of this representation relates 
 
 ## Post-parsing
 
-After you parse the input text, you have so many paths you can follow I can't describe every single one in length, so here's a short description. If you know what tree-walking, bytecode VM, JIT, AOT means, you can skip this part.
+After you parse the input text, you have so many paths you can follow I can't describe every single one in length, so here's a short description. If you know what tree-walking, bytecode VM, JIT, or AOT mean, you can skip this part.
 
- - **Tree-walking interpreter**: Just recursively walk through the AST and execute the nodes. Along the way, you have to store the currently declared variables and functions. For Rinha, when you find a function, you can evaluate the function as a Function value, just like any other kind of value. For functions you can store the entire AST data in this value, the parameters, and a copy of the currently declared functions that will be the closure/captured values of the function.
- - **Bytecode VM**: Do you know Java? Do you know Javascript? Maybe Python? All of those contain a Virtual Machine (VM) that executes what's called a bytecode, which is a list of instructions similar to Assembly, but for a virtual machine (and not a physical machine like your CPU). The bytecode is designed in tandem with the virtual machine, so that the VM can execute the bytecode efficiently. You can think of your physical processor as a physical machine that interprets some ""bytecode"" (machine instructions) and all of that happens in sillicon, in hardware. The bytecode VM tries to emulate some of the things the CPU and OS does, like decoding instructions, doing arithmetic, branching (if statements), call stacks, and so on. This tends to be a lot faster than tree-walking interpreters because there's less pointer chasing and better data locality: the AST is a tree structure often with many things allocated all over the heap. Bytecode in the other hand is a more compact representation that fits much better in CPU cache. One of the main overheads of interpreting code is determining "what to do next?", and having a compact representation of the code in cache helps a lot. It also turns out my approach of HOAS, or what I call Lambda compilation (because it's all boxed lambda functions) also help with that.
- - **JIT (Just In Time) compilers**: In comparison with native code, bytecode still leaves a lot of performance on the table. For a simple instruction in an interpreted language, many dozens of CPU instructions are often needed to fetch values from stack, write on them, manage the VM state, fetching an decoding the next instruction, and so on. But interpreted languages do come with a lot of flexibility and portability. What JIT compilers do is to get the best of the two worlds: at its core the language is interpreted, but parts of the user's code is compiled down to fast machine code. Sometimes the compiler can figure all of the types of a function even in languages without type annotations (like JS). This is why Javascript is so fast: what V8, JSC and Spidermonkey do is nothing short of a miracle, and that's due to JIT. When needed and possible, the JIT can generate native code for a function. The same compiled binary or JS file can run in any browser in any computer while retaining really good, sometimes near native performance. Java and C# are languages that run in a JIT compiler (JVM and RyuJIT respectively, and more recently Java also runs in GraalVM).
- - **AOT (Ahead Of Time) compilers**: This is what Rust, C++, C, Go, and many other languages do. They compile to native code from the beginning. No bytecode VM needed, and you get native performance as a result. You lose the hability to run the same binary in multiple OSs and CPUs, but you gain a lot of performance. Each OS and CPU architecture needs a different binary.
+ - **Tree-walking interpreter**: Just recursively walk through the AST and execute the nodes. Along the way, you have to store the currently declared variables and functions. For Rinha, when you find a function, you can evaluate the function as a Function value, just like any other kind of value. For functions, you can store the entire AST data in this value, the parameter names, and a copy of the current environment (like declared variables) that will act as the function closure. This is a bit slow and you can definitely optimize things out, as I'll show in the rest of the article.
+ - **Bytecode VM**: Do you know Java? Do you know Javascript? Maybe Python? All of those contain a Virtual Machine (VM) that executes what's called a bytecode, which is a list of instructions similar to Assembly, but for a virtual machine (and not a physical machine like your CPU). The bytecode is designed in tandem with the virtual machine so that the VM can execute the bytecode efficiently. You can think of your physical processor as a physical machine that interprets some ""bytecode"" (machine instructions) and all of that happens in silicon, in hardware. The bytecode VM tries to emulate some of the things the CPU and OS do, like decoding instructions, doing arithmetic, branching (if statements), call stacks, and so on. This tends to be a lot faster than tree-walking interpreters because there's less pointer chasing and better data locality: the AST is a tree structure often with many things allocated all over the heap. Bytecode on the other hand is a more compact representation that fits much better in CPU cache. One of the main overheads of interpreting code is determining "what to do next?", and having a compact representation of the code in the CPU cache helps a lot. It also turns out my approach of HOAS, or what I call Lambda compilation (because it's all boxed lambda functions) also help with that.
+ - **JIT (Just In Time) compilers**: In comparison with native code, bytecode still leaves a lot of performance on the table. For a simple instruction in an interpreted language, many dozens of CPU instructions are often needed to fetch values from stack, write on them, manage the VM state, fetching and decoding the next instruction, and so on. But interpreted languages do come with a lot of flexibility and portability. What JIT compilers do is to get the best of the two worlds: at its core, the language is interpreted, but parts of the user's code are compiled down to fast machine code. Sometimes the compiler can figure all of the types of a function even in languages without type annotations (like JS). This is why Javascript is so fast: what V8, JSC, and Spidermonkey do is nothing short of a miracle, and that's due to JIT. When needed and possible, the JIT can generate native code for a function. The same compiled binary or JS file can run in any browser on any computer while retaining really good, sometimes near-native performance. Java and C# are languages that run in a JIT compiler (JVM and RyuJIT respectively, and more recently Java also runs in GraalVM).
+ - **AOT (Ahead Of Time) compilers**: This is what Rust, C++, C, Go, and many other languages do. They compile to native code from the beginning. No bytecode VM needed, and you get native performance as a result. You lose the ability to run the same binary in multiple OSs and CPUs, but you gain a lot of performance. Each OS and CPU architecture needs a different binary.
 
 
 The Rinha Language
@@ -113,7 +113,7 @@ let fib = fn (n) => {
 print("fib: " + fib(10))
 ```
 
-Rinha is a very basic dynamically-typed functional language. Functions support recursion and you can declare functions inside functions, return functions from functions, take functions by parameter that, when executed, return new functions, all that good stuff from functional programming.
+Rinha is a small dynamically typed functional language. Functions support recursion and you can declare functions inside functions, return functions from functions, take functions by a parameter that, when executed, returns new functions, and all that good stuff from functional programming.
 
 I also wrote a small program that tests some of the language features, except for strings:
 
@@ -201,11 +201,11 @@ let _ = print("factorial 10: " + second(eval(fac, empty_env)));
 
 My idea for Rinha was to build an initial simple reasonably optimized interpreter and then try to type-check it for AOT, but that didn't work. I did learn a bit about Hindley Milner type inference, but the input language is just too dynamic, there are no type annotations, and it would need some haskell-like type classes to make operator overloading work (i.e. the + does integer sum and string concat). That's too complex for the timeframe I had, so I decided to stick with an interpreter. I wouldn't have much time to dedicate to the Rinha before the competition as I was traveling, but I had been curious about an article I had read about a tree-walker-like interpreter, but on steroids. I did experiment with the approach in the past in a smaller scale, but I thought it was finally time to make it for real
 
-Some time ago, I read a [Cloudflare article](https://blog.cloudflare.com/building-fast-interpreters-in-rust/) in which they build an interpreter for Wireshark filters to add it to their firewall solutions. Their first solution was a treewalker, which was alright... it would be nice if they were a bit faster though. However, the risks and overheads of JITting the filters to all platforms way too high, outweighing any benefits. They are processing untrusted network input, and doing low-level unsafe programming (like running JIT, generating machine code, marking sections of memory as executable, and so on) also didn't seem like a good idea at the scale they deal with.
+Some time ago, I read a [Cloudflare article](https://blog.cloudflare.com/building-fast-interpreters-in-rust/) in which they built an interpreter for Wireshark filters to add it to their firewall solutions. Their first solution was a treewalker, which was alright... it would be nice if they were a bit faster though. However, the risks and overheads of JITting the filters to all platforms are way too high, outweighing any benefits. They are processing untrusted network input, and doing low-level unsafe programming (like running JIT, generating machine code, marking sections of memory as executable, and so on) also didn't seem like a good idea at the scale they deal with.
 
 Instead, they did a HOAS approach (according to Sofia). HOAS means High-Order Abstract Syntax, and I will not pretend I know what it means. My entry uses Rust, and I actually call it Lambda compilation, because it's all lambdas. It's all dynamic dispatch and closures. HOAS means you use the host language's features to run the language, but it's only true HOAS for the most simple of languages, like lambda calculus. For anything a bit more complicated it's more difficult to pull it off in a pure HOAS fashion. ChatGPT tells me it's actually a mixture of First-Order Abstract Syntax (FOAS) and HOAS, but I will also not pretend I know what exactly it means. Therefore, let's go with lambda compilation, it describes exactly what happens in the code.
 
-Also bear in mind that I won't worry too much about memory leaks and memory consumption in general, this is a toy interpreter for a competition, not production usage. Still, I think some things I learned would work alright in a production interpreter, while for others I exploited the nature of the competition and just did some hacky stuff to squeeze performance.
+Also, bear in mind that I won't worry too much about memory leaks and memory consumption in general, this is a toy interpreter for a competition, not production usage. Still, I think some things I learned would work alright in a production interpreter, while for others I exploited the nature of the competition and just did some hacky stuff to squeeze performance.
 
 For the lambda compilation approach, suppose we need to compile a binary expression that loads a constant value and a variable, I would need this code:
 
@@ -250,15 +250,15 @@ fn compile(&self, ast: &Term) -> LambdaFunction {
 
 ``````
 
-Instead of matching the AST at runtime, we try to pre-compile every decision that the treewalker would do. For instance,
-a regular treewalker would have no choice but to pattern match on every kind of operator (plus, multiply, minus, etc) at every execution of a binary operarion. In our scenario, we already looked into it and determined we only need to do the dynamic type checking to ensure both sides are `Int`, the operator + handler is returned directly.
+Instead of matching the AST at runtime, we try to pre-compile every decision that the tree walker would do. For instance,
+a regular treewalker would have no choice but to pattern-match every kind of operator (plus, multiply, minus, etc) at every execution of a binary operation. In our scenario, we already looked into it and determined we only need to do the dynamic type checking to ensure both sides are `Int`, the operator + handler is returned directly.
 
-How much faster is this compared to a regular treewalker? Cloudflare claims it's 10~15%, and their article also uses Rust, but the language is very different.
+How much faster is this compared to a regular tree walker? Cloudflare claims it's 10~15%, and their article also uses Rust, but the language is very different.
 
 The problem is: I didn't measure it in Rust. However, I did measure it in Ocaml using ocamlopt, and I have this [OCaml version of the Rinha interpreter](https://github.com/ricardopieper/rinha-ocaml) that compares the two approaches. In general, I'm getting around 8% improvement using this approach. Doing it in OCaml was much more of a joy compared to Rust, but in Rust it wasn't too difficult either. I'd say this lambda compilation strategy is a bit more complicated to debug though.
 
 
-So I wrote the initial implementation, and tried to run the perf.rinha file, here it is in case you don't want to scroll all the way back:
+So I wrote the initial implementation and tried to run the perf.rinha file, here it is in case you don't want to scroll all the way back:
 
 ```
 let iter = fn (from, to, call, prev) => {
@@ -292,7 +292,7 @@ This code ran in 43ms. That's our baseline. It's pretty bad. Let's optimize it.
 
 ## Optimization 1: BTreeMap instead of HashMap
 
-In the interpreter VM state, I store variables in the call frame data. Each time a function is called, I create a new call frame with an empty `HashMap<&str, Value>` map for the variables, and store all let bindings, closure and params there.
+In the interpreter VM state, I store variables in the call frame data. Each time a function is called, I create a new call frame with an empty `HashMap<&str, Value>` map for the variables, and store all let bindings, closure, and params there.
 
 This first optimization is just changing that map to a `BTreeMap<&str, Value>` instead. Hashing strings is kinda expensive, so let's stop doing that.
 
@@ -545,17 +545,17 @@ This is 12 bytes. Now Rust chose a 4-byte alignment due to HeapPointer and value
 
 ## Optimization 8: Reduce the size of the `Value` even more
 
-This is just an extension to the previous idea. Let's get it down to 8 bytes by creating a `ClosurePointer` of 4 bytes.
-I also had to remoe the extra tuple values and make all of them point to heap values, otherwise the size of the enum would still be 12 bytes because i32 and bool align in 4 bytes.
+This is just an extension of the previous idea. Let's get it down to 8 bytes by creating a `ClosurePointer` of 4 bytes.
+I also had to remove the extra tuple values and make all of them point to heap values, otherwise, the size of the enum would still be 12 bytes because i32 and bool align in 4 bytes.
 
 We're at 2.5ms, 16% improvement over last, 1624% over baseline.
 
 
 ## Optimization 9: Frame reuse in TCO
 
-Currently, our TCO implementation just avoids creating a physical call frame on every call inside the recursive function, but it still creates a virtual VM frame. This is unecessary and creates a lot of unecessary allocations. In the end I spent a whole afternoon making it work, but the implementation ended up being really simple: a flag on the call frame that tells whether we should reuse the fame. Then calling the function recursively, we read that flag and simply skip popping and pushing that frame. Only when the trampoliner finishes executing we really pop the frame.
+Currently, our TCO implementation just avoids creating a physical call frame on every call inside the recursive function, but it still creates a virtual VM frame. This creates a lot of unnecessary allocations. In the end, I spent a whole afternoon making it work, but the implementation ended up being really simple: a flag on the call frame that tells whether we should reuse the fame. Then calling the function recursively, we read that flag and simply skip popping and pushing that frame. Only when the trampoliner finishes executing we really pop the frame.
 
-This reduced the runtime to 2.2ms, 13.6% faster than previous, and 1859% over baseline.
+This reduced the runtime to 2.2ms, 13.6% faster than the previous, and 1859% over baseline.
 
 
 ## Optimization 10: Empty closures
@@ -589,7 +589,7 @@ pub struct ExecutionContext<'a> {
 
 For closures, at this point we are using `BTreeMaps`. The usize key is the variable ID. Every time we declare a function, we create a new `BTreeMap` and store it in the vector, which makes the `closure_environments` grow rapidly. But there are many cases where this is not necessary: If the compiler analyzes the function and decides it doesn't capture anything, we can just use one canonical "capture-less" function.
 
-Therefore, at the beginning of the execution during instantiation of the `ExecutionContext`, for every callable we store a Closure that points to a non-exisitng `closure_env_index`, like `u32::MAX`. This points to a value that doesn't exist and would crash if used, but the fact that it tried to load a non-existing closure is a bug in our analysis step.
+Therefore, at the beginning of the execution during instantiation of the `ExecutionContext`, for every callable we store a Closure that points to a non-existent `closure_env_index`, like `u32::MAX`. This points to a value that doesn't exist and would crash if used, but the fact that it tried to load a non-existing closure is a bug in our analysis step.
 
 ```
   let empty_closures = {
@@ -612,7 +612,7 @@ This entire thing improved the performance by..... 0%. Nice :) Some benchmarks d
 
 ### Optimization 11: Small Tuples
 
-For tuples with int values that fit into i16, we don't heap allocate them, instead I created a `SmallTuple(i16, i16)` variant.
+For tuples with int values that fit into i16, we don't heap allocate them, instead, I created a `SmallTuple(i16, i16)` variant.
 Down to 2.1ms.
 
 
@@ -628,13 +628,13 @@ let y = 20; //shadowed!
 print(y); //should print 10, not 20
 ```
 
-For my horror it was printing 20 because values weren't being copied into the closure properly. After fixing it, unfortunately the performance got much worse, up to 3.4ms. That's a huge setback.
+To my horror it was printing 20 because values weren't being copied into the closure properly. Unfortunately, after fixing it, the performance got much worse, up to 3.4ms. That's a huge setback.
 
 However, the fix was quite easy.
 
 ### Optimization 12: Minimal function closures
 
-Our capture analysis in Optimization 10 missed the oportunity to reduce the copies. The way closures where created was:
+Our capture analysis in Optimization 10 missed the opportunity to reduce the copies. The way closures were created was:
 
  - Get all the variables in scope right now
  - Copy them into the closure
@@ -649,23 +649,23 @@ This was the program I submitted for the competition.
 
 This one got almost everyone by surprise. Sofia tested her benchmark program only to break almost all interpreters, and not for the reasons we expected.
 
-This is the code that they tried to run, which isn't that big, having almost 400 lines of code. You can take a look at it [here](https://gist.github.com/aripiprazole/d46c315d6923c64ad5082b6d221e83e8). Each `let` statement has a `next` node, which could point to another `let`, that has another `next`, and so on. In my case, Serde would just not parse that file. It complained about "maximum recursion depth" or something, so I had to change some configs and add some dependencies, then I got afraid my compiler would crash due to excessive recursion. I thought whey had like thousands and thousands of lines of code.
+This is the code that they tried to run, which isn't that big, having almost 400 lines of code. You can take a look at it [here](https://gist.github.com/aripiprazole/d46c315d6923c64ad5082b6d221e83e8). Each `let` statement has a `next` node, which could point to another `let`, that has another `next`, and so on. In my case, Serde would just not parse that file. It complained about "maximum recursion depth" or something, so I had to change some configs and add some dependencies, and then I got afraid my compiler would crash due to excessive recursion. I thought they had like thousands and thousands of lines of code.
 
-After changing some stuff (using lists of let expressions instead of a linked list of `let`), I fixed the issue, but lost a bit of performance, now the program runs in 2.3ms. I would only understand why a few days later, but at this time, I had to quickly submit a fix.
+After changing some stuff (using lists of let expressions instead of a linked list of `let`), I fixed the issue but lost a bit of performance, now the program runs in 2.3ms. I would only understand why a few days later, but at this time, I had to quickly submit a fix.
 
-At this point my interpreter was running fib(46) in around 220 seconds, while the winning submission from Raphael was running it in 140 seconds without memoization. Ah yes, some people implemented memoization, to varying levels of success. Raphael did too, but this 140s number was acquired when his interpreter didn't have memoization.
+At this point, my interpreter was running fib(46) in around 220 seconds, while the winning submission from Raphael was running it in 140 seconds without memoization. Ah yes, some people implemented memoization, to varying levels of success. Raphael did too, but this 140s number was acquired when his interpreter didn't have memoization.
 
 The next optimizations were done after the competition.
 
 ### Optimization 13: Undo optimization 3
 
-In Optimization 3, we did that weird varialble stack tracking that resembled, IMO, a column-based database. I decided to get rid of it, and simimlar to Optimization 12, compute exactly how much space the stack frame needs. I had the information available. Then I changed the Call frame to store a `Vec<Value>` inside it, like God intended. We got down to 2.0ms from 2.3ms, which is the fastest so far. But this revealed some subtle bugs that I had to fix, so it's also the fastest and most correct implementation at this point.
+In Optimization 3, we did that weird variable stack tracking that resembled, IMO, a column-based database. I decided to get rid of it, and similar to Optimization 12, compute exactly how much space the stack frame needs. I had the information available. Then I changed the Call frame to store a `Vec<Value>` inside it, like God intended. We got down to 2.0ms from 2.3ms, which is the fastest so far. But this revealed some subtle bugs that I had to fix, so it's also the fastest and most correct implementation at this point.
 
 The next 2 implementations were very easy and had massive effects.
 
 ### Optimization 14: Solving the pre-submission slowdown.
 
-What happened in the pre submission bugfix?
+What happened in the pre-submission bugfix?
 
 Well, `let` statements became vectors instead of linked lists from the AST format. Because of that, bodies of functions and if statements had lists of expressions that had to be run like this:
 
@@ -713,7 +713,7 @@ let loop = fn (i, s) => {
 print(loop(2000000000, 0))
 ```
 
-This used to run in 60 seconds, and now runs in 47ms, rivaling the fastest interpreter among the people in the Discord chat (the 7th place submission from fabiosvm).
+This used to run in 60 seconds and now runs in 47s, rivaling the fastest interpreter among the people in the Discord chat (the 7th place submission from fabiosvm).
 
 
 ### Final optimization: Pass the call frame along
@@ -736,15 +736,15 @@ Just pass the frames along. When we call a function, we create the new frame and
 
 This results in a massive improvement.
 
-`perf.rinha` now runs in 1.55ms, down from 1.95ms. This is where I achieved the 27x speedup. `fib(46)` runs in 120s from 190ms of the last optimization, and the big looping function that counts to a billion now runs in about 35 seconds instead of a full minute.
+`perf.rinha` now runs in 1.55ms, down from 1.95ms. This is where I achieved the 27x speedup. `fib(46)` runs in 120s from 190ms of the last optimization and the big looping function that counts to a billion now runs in about 35 seconds instead of a full minute.
 
-I think if we ran the benchmark again I would have some chances of getting a better position ;)
+I think if we ran the benchmark again I would have some chance of getting a better position ;)
 
 
 # Conclusion
 
-I had a blast working on Rinha. At some points I had to fire up callgrind and cachegrind to see what was going on, had to do a bunch of experiments that ended up not working, but I just love writing code in Rust. Even if I didn't win the competition I had a lot of fun programming and talking with people on Discord and exchanging ideas.
+I had a blast working on Rinha. At some points, I had to fire up callgrind and cachegrind to see what was going on, had to do a bunch of experiments that ended up not working, but I just love writing code in Rust. Even if I didn't win the competition I had a lot of fun programming and talking with people on Discord and exchanging ideas.
 
-Maybe the next challenge is to fully type check the language and use LLVM, who knows?
+Maybe the next challenge is to fully type-check the language and use LLVM, who knows?
 
-Or maybe I should just continue working on my other compiler project, Donkey, which is a statically typed (with type annotations) python-like programming language that tastes like C with some C++-template inspired generics. Or maybe rest a little bit :)
+Or maybe I should just continue working on my other compiler project, Donkey, which is a statically typed (with type annotations) Python-like programming language that tastes like C with some C++-template-inspired generics. Or maybe rest a little bit :)
