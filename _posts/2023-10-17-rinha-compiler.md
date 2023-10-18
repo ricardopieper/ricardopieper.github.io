@@ -587,7 +587,7 @@ pub struct ExecutionContext<'a> {
 }
 ```
 
-For closures, at this point we are using `BTreeMaps`. The usize key is the variable ID. Every time we declare a function, we reate a new `BTreeMap` and store it in the vector, which makes the `closure_environments` grow rapidly. But there are many cases where this is not necessary: If the compiler analyzes the function and decides it doesn't capture anything, we can just use one canonical "capture-less" function.
+For closures, at this point we are using `BTreeMaps`. The usize key is the variable ID. Every time we declare a function, we create a new `BTreeMap` and store it in the vector, which makes the `closure_environments` grow rapidly. But there are many cases where this is not necessary: If the compiler analyzes the function and decides it doesn't capture anything, we can just use one canonical "capture-less" function.
 
 Therefore, at the beginning of the execution during instantiation of the `ExecutionContext`, for every callable we store a Closure that points to a non-exisitng `closure_env_index`, like `u32::MAX`. This points to a value that doesn't exist and would crash if used, but the fact that it tried to load a non-existing closure is a bug in our analysis step.
 
