@@ -736,7 +736,7 @@ Just pass the frames along. When we call a function, we create the new frame and
 
 This results in a massive improvement.
 
-`perf.rinha` now runs in 1.55ms, down from 1.95ms. This is where I achieved the 27x speedup. `fib(46)` runs in 120s from 190ms of the last optimization and the big looping function that counts to a billion now runs in about 35 seconds instead of a full minute.
+`perf.rinha` now runs in 1.55ms, down from 1.95ms. This is where I achieved the 27x speedup. `fib(46)` runs in 120s from 190s of the last optimization and the big looping function that counts to a billion now runs in about 35 seconds instead of a full minute.
 
 I think if we ran the benchmark again I would have some chance of getting a better position ;)
 
