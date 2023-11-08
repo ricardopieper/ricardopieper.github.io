@@ -730,15 +730,16 @@ This used to run in 60 seconds and now runs in 47 seconds, rivaling the fastest 
 Whenever we build a lambda function, we do this:
 
 ```rust
-  Box::new(move |ec| { ec.frame().stack_data.... /*do something with frame data*/ })
+  Box::new(move |ec| { ec.frame().stack_data... /*do something with frame data*/ })
 ```
 
 The `ec.frame()` call returns the top of the call stack, which is stored in a `Vec` inside the execution context. However, why do this when the call stack is quite explicit in our program? Why save in a vector, which needs to do a size check for every push even if enough memory exists?
 
 Turns out we can just do this:
 
-```
-Box::new(move |ec, frame| { frame.stack_data.... /*do something with frame data*/ })
+```rust
+Box::new(move |ec, frame| { frame.stack_data... /*do something with frame data*/ })
+                   ˆˆˆˆˆ new parameter
 ```
 
 Just pass the frames along. When we call a function, we create the new frame and pass it to the callee's compiled `LambdaFunction`.

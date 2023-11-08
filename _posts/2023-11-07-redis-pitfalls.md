@@ -21,21 +21,21 @@ When I started working at Monomyto Game Studios, one of the most annoying sporad
 
 In the backend, we had multiple servers, and each client could be connected in any of these servers. Inside the backend, the clients would communicate among themselves by sending messages. This was done using a framework called MagicOnion, but we don't need to go in depth in what MagicOnion does. Suffice to say, it made this communication easier. During the process of building a squad, both clients would add themselves to the same squad at the same time in Redis. The astute reader that does distributed programming on a daily basis (or even just concurrent programming on a shared memory architecture) can spot a potential problem right there.
 
-The squad was represented in Redis as a single key, something like this:
+The squad was represented in Redis as a single key, with a name similar to `squad_82506af6-2046-4688-a472-b31569ff974e` and contents like this:
 
-```json
-SET squad_82506af6-2046-4688-a472-b31569ff974e {
+```javascript
+{
   "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf" //the User ID of the squad leader,
   "GameMode": "DuoBattleRoyale",
-  ...some other data,
+  //...some other data,
   "Members": [
     {
       "UserId": "155afdaa-6b2d-4478-b10a-05094375f1bf",
-      ...other data
+      //...other data
     },
     {
       "UserId": "82506af6-2046-4688-a472-b31569ff974e",
-      ...other data
+      //...
     }
   ]
 }
@@ -59,7 +59,7 @@ This is how the invitee would behave:
 1. Send the `InviteAccepted` event asynchronously, fire and forget
 
 1. Without waiting for the leader to add themselves, we get the current squad data:
-    ```json
+    ```redis
     GET squad_82506af6-2046-4688-a472-b31569ff974e
     ```
 
@@ -67,16 +67,16 @@ This is how the invitee would behave:
 
 1. Serialize
 
-1. Set the new squad data:
+1. Set the new squad data with `SET squad_82506af6-2046-4688-a472-b31569ff974e`:
 
     ```json
-    SET squad_82506af6-2046-4688-a472-b31569ff974e {
-      "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf"
+    {
+      "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf",
       "GameMode": "DuoBattleRoyale",
       "Members": [
         {
           "UserId": "155afdaa-6b2d-4478-b10a-05094375f1bf",
-          ...
+          //...
         }
       ]
     }
@@ -90,20 +90,20 @@ So far so good. How about the leader?
 
 1. Deserialize, add themselves to the Members section (done in C#)
 
-1. Set the new squad data:
+1. Set the new squad data with `SET squad_82506af6-2046-4688-a472-b31569ff974e`:
 
     ```json
-    SET squad_82506af6-2046-4688-a472-b31569ff974e {
-      "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf"
+    {
+      "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf",
       "GameMode": "DuoBattleRoyale",
       "Members": [
         {
           "UserId": "82506af6-2046-4688-a472-b31569ff974e",
-          ...
+          //...
         },
         {
           "UserId": "155afdaa-6b2d-4478-b10a-05094375f1bf",
-          ...
+          //...
         }
       ]
     }
@@ -114,21 +114,21 @@ Notice that in this example, it just worked. However, we got very lucky: the lea
 
 In that case, both would run `GET squad_82506af6-2046-4688-a472-b31569ff974e` and see the same state:
 ```json
-    {
-      "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf"
-      "GameMode": "DuoBattleRoyale",
-      "Members": []
-    }
+{
+  "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf",
+  "GameMode": "DuoBattleRoyale",
+  "Members": []
+}
 ```
 
 Both would add themselves to that json:
 ```json
 {
-  "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf"
+  "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf",
   "GameMode": "DuoBattleRoyale",
   "Members": [
     {
-          "UserId": "<either the leader or invitee>",
+      "UserId": "<either the leader or invitee>",
     }
   ]
 }
@@ -137,11 +137,11 @@ Both would add themselves to that json:
 And then both would store that key to Redis. Who will win that race?
 ```json
 {
-  "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf"
+  "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf",
   "GameMode": "DuoBattleRoyale",
   "Members": [
     {
-          "UserId": "<Maybe the leader won? Maybe the invitee? Who knows!>",
+      "UserId": "<Maybe the leader won? Maybe the invitee? Who knows!>",
     }
   ]
 }
@@ -168,11 +168,11 @@ That would make it just work. There's even an algorithm called [Redlock](https:/
 Let's get rid of the "Members" key in that JSON:
 
 ```json
-SET squad_82506af6-2046-4688-a472-b31569ff974e {
-  "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf"
+ {
+  "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf",
   "GameMode": "DuoBattleRoyale",
   "MatchmakingStatus": "Waiting",
-  ...
+  //...
 }
 ```
 
@@ -218,12 +218,12 @@ This works if there's only a single user modifying this counter, but suppose the
 ```
 
 This makes the counter 1 instead of what we really want, which is 2. The solution is to use an atomic operation, like INCR:
-
-    [User1] var newCounter = redis.Incr("COUNTER")
-    [Redis] INCR COUNTER (returns 1)
-    [User2] var newCounter = redis.Incr("COUNTER")
-    [Redis] INCR COUNTER (returns 2)
-
+```csharp
+[User1] var newCounter = redis.Incr("COUNTER")
+[Redis] INCR COUNTER (returns 1)
+[User2] var newCounter = redis.Incr("COUNTER")
+[Redis] INCR COUNTER (returns 2)
+```
 You can't predict what a specific user's `newCounter` will be, but they will increase monotonically.
 
 Network traffic
@@ -238,14 +238,14 @@ Unfortunately, it's surprisingly hard for some newer developers to understand ho
 That system would not work for much longer if action wasn't be taken. It was also not a trivial problem to solve. A few months after we first saw it, COVID happened and rapidly the amount of users grew, so eventually it had to be solved or mitigated. I don't know what the solution was, but I'm fairly confident we had many keys such as these:
 
 ```json
-SET conversation_{userid} {
+{
   "status": "...",
   "name": "...",
   "email": "...",
   "channel": "whatsapp",
-  ... many properties...
+  //... many properties...
   "lastMessage": {
-    ... a fairly big JSON here
+    //... a fairly big JSON object here
   }
 }
 ```
