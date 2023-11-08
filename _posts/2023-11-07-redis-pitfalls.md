@@ -69,7 +69,7 @@ This is how the invitee would behave:
 
 1. Set the new squad data with `SET squad_82506af6-2046-4688-a472-b31569ff974e`:
 
-    ```json
+    ```js
     {
       "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf",
       "GameMode": "DuoBattleRoyale",
@@ -92,7 +92,7 @@ So far so good. How about the leader?
 
 1. Set the new squad data with `SET squad_82506af6-2046-4688-a472-b31569ff974e`:
 
-    ```json
+    ```js
     {
       "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf",
       "GameMode": "DuoBattleRoyale",
@@ -113,7 +113,7 @@ Notice that in this example, it just worked. However, we got very lucky: the lea
 
 
 In that case, both would run `GET squad_82506af6-2046-4688-a472-b31569ff974e` and see the same state:
-```json
+```js
 {
   "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf",
   "GameMode": "DuoBattleRoyale",
@@ -122,7 +122,7 @@ In that case, both would run `GET squad_82506af6-2046-4688-a472-b31569ff974e` an
 ```
 
 Both would add themselves to that json:
-```json
+```js
 {
   "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf",
   "GameMode": "DuoBattleRoyale",
@@ -135,7 +135,7 @@ Both would add themselves to that json:
 ```
 
 And then both would store that key to Redis. Who will win that race?
-```json
+```js
 {
   "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf",
   "GameMode": "DuoBattleRoyale",
@@ -167,7 +167,7 @@ That would make it just work. There's even an algorithm called [Redlock](https:/
 
 Let's get rid of the "Members" key in that JSON:
 
-```json
+```js
  {
   "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf",
   "GameMode": "DuoBattleRoyale",
@@ -237,7 +237,7 @@ Unfortunately, it's surprisingly hard for some newer developers to understand ho
 
 That system would not work for much longer if action wasn't be taken. It was also not a trivial problem to solve. A few months after we first saw it, COVID happened and rapidly the amount of users grew, so eventually it had to be solved or mitigated. I don't know what the solution was, but I'm fairly confident we had many keys such as these:
 
-```json
+```js
 {
   "status": "...",
   "name": "...",

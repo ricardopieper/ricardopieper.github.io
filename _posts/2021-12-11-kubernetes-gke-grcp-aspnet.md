@@ -201,7 +201,7 @@ GCLB will not check whether the certificate is valid or not.
 
 I also defined the URLs in the `appsettings.json` file:
 
-```json
+```js
 {
   "Kestrel": {
     "Endpoints": {
