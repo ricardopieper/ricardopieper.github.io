@@ -20,7 +20,7 @@ Our game, Gunstars, has a gRPC service written in C# and ASP.NET. We also use Ma
  - Manage squads
  - Perform matchmaking functions
  - Manage friend requests
- 
+
 As you might know, gRPC uses HTTPS/2 under the hood to establish a bidirectional communications channel. This application is exposed
 to the internet, and therefore needs HTTPS to make the communication secure.
 
@@ -28,7 +28,7 @@ to the internet, and therefore needs HTTPS to make the communication secure.
 
 For a simple service that does not need HTTPS, we can simply use a `LoadBalancer` service on kubernetes:
 
-```
+```yml
 apiVersion: v1
 kind: Service
 metadata:
@@ -48,7 +48,7 @@ The load balancer will be exposed to the internet, and GKE will automatically as
 
 Thankfully, we have another kind of resource on kubernetes: Ingress. An external ingress also exposes a service to the internet, but we have more options to play with. Let's take a look at our deployment first:
 
-```
+```yml
 # Some details ommited for brevity
 apiVersion: apps/v1
 kind: Deployment
@@ -72,9 +72,9 @@ spec:
         imagePullPolicy: "Always"
         env:
           - name: ASPNETCORE_URLS
-            value: "http://+:5000;http://+:5001" 
+            value: "http://+:5000;http://+:5001"
         ports:
-          - containerPort: 5000 
+          - containerPort: 5000
           - containerPort: 5001
 ```
 
@@ -83,7 +83,7 @@ This deployment exposes 2 ports: 5000 and 5001. 5000 will be used for the gRPC H
 
 Now it's time to define our service. Let's take a look:
 
-```
+```yml
 apiVersion: v1
 kind: Service
 metadata:
@@ -115,7 +115,7 @@ Also notice the `cloud.google.com/backend-config` annotation: we need to tell GK
 
 Our backend config looks like this:
 
-```
+```yml
 apiVersion: cloud.google.com/v1
 kind: BackendConfig
 metadata:
@@ -127,16 +127,16 @@ spec:
     type: HTTP
     requestPath: /health
   connectionDraining:
-    drainingTimeoutSec: 15 
+    drainingTimeoutSec: 15
 ```
 
 ### Ingress definition
 
-To define an ingress, we have a choice to make. We can use a load balancer such as Nginx, or use Google's load balancer. Each one has its pros and cons: Nginx has tons of configurations to choose and is very flexible, while GCE Load balancer is not very configurable. However, due to the size and inexperience of the team regarding backend services, the tradeoff I'm choosing is letting GCE manage most things. The backend is a responsability of the entire company, and everyone should have some knowledge about how it works. Linking a certificate with Nginx automatically would require a ton of configuration with `cert-manager.io`, which would use Letsencrypt to generate a certificate, and renew it. However, the amount of configuration needed can be overwhelming. Therefore, we chose GCE's load balancer (GCLB) which is the default load balancer on GKE. 
+To define an ingress, we have a choice to make. We can use a load balancer such as Nginx, or use Google's load balancer. Each one has its pros and cons: Nginx has tons of configurations to choose and is very flexible, while GCE Load balancer is not very configurable. However, due to the size and inexperience of the team regarding backend services, the tradeoff I'm choosing is letting GCE manage most things. The backend is a responsability of the entire company, and everyone should have some knowledge about how it works. Linking a certificate with Nginx automatically would require a ton of configuration with `cert-manager.io`, which would use Letsencrypt to generate a certificate, and renew it. However, the amount of configuration needed can be overwhelming. Therefore, we chose GCE's load balancer (GCLB) which is the default load balancer on GKE.
 
 Therefore, we can just declare a `ManagedCertificate` like this:
 
-```
+```yml
 apiVersion: networking.gke.io/v1
 kind: ManagedCertificate
 metadata:
@@ -148,7 +148,7 @@ spec:
 
 This certificate can be linked to the ingress:
 
-```
+```yml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -172,26 +172,26 @@ And success! Everything should work, right?
 
 I tried deploying an HTTP1.1 application, it worked fine. I tried using the `gcr.io/google-containers/echoserver` to test HTTP/2 specifically, it worked fine. What gives?
 
-In my experience, the applications inside our network (behind a load balancer) can just listen to unencrypted traffic, while the load balancer takes care of HTTPS. It seems like this works for HTTP 1.1, but GKE is quite picky regarding HTTP/2. It is assumed that HTTP/2 will always use HTTPS, but that's not entirely true: it is possible to use unencrypted HTTP/2 (for instance, when testing things locally). 
+In my experience, the applications inside our network (behind a load balancer) can just listen to unencrypted traffic, while the load balancer takes care of HTTPS. It seems like this works for HTTP 1.1, but GKE is quite picky regarding HTTP/2. It is assumed that HTTP/2 will always use HTTPS, but that's not entirely true: it is possible to use unencrypted HTTP/2 (for instance, when testing things locally).
 
 Let's take a look at our deployment again, specifically our environment variables:
 
-```
+```yml
 env:
   - name: ASPNETCORE_URLS
-    value: "http://+:5000;http://+:5001" 
+    value: "http://+:5000;http://+:5001"
 ```
 
 That seems to be following what's been true in my experience. My ASP.NET application is listening on port 5000 unencrypted.
 
 **However**, for some reason, that doesn't work: we need to use HTTPS **in the deployment** as well! So I changed our deployment to this:
 
-```
+```yml
 env:
   - name: ASPNETCORE_URLS
     value: "https://+:5000;http://+:5001"
   - name: ASPNETCORE_Kestrel__Certificates__Default__Path
-    value: "./https/aspnetapp.pfx" 
+    value: "./https/aspnetapp.pfx"
   - name: ASPNETCORE_Kestrel__Certificates__Default__Password
     value: "..."
 ```
@@ -201,7 +201,7 @@ GCLB will not check whether the certificate is valid or not.
 
 I also defined the URLs in the `appsettings.json` file:
 
-```
+```json
 {
   "Kestrel": {
     "Endpoints": {
@@ -228,7 +228,7 @@ After googling for 3 days on and off for a solution to `failed_to_connect_to_bac
 
 [GCP Load Balancer: 502 Server Error, "failed_to_connect_to_backend"](https://stackoverflow.com/questions/51474928/gcp-load-balancer-502-server-error-failed-to-connect-to-backend)
 
-On these stackoverflow posts, it now seems to be implied that the deployment (or backend instances) should be listening for HTTPS, encrypted traffic. 
+On these stackoverflow posts, it now seems to be implied that the deployment (or backend instances) should be listening for HTTPS, encrypted traffic.
 
 Other posts are seemingly more thorough, but do not address the issue at all:
 
@@ -236,7 +236,7 @@ Other posts are seemingly more thorough, but do not address the issue at all:
 
 When you do things in a rush and have to do many context switches in your day, keeping track of everything and give that much attention to detail to what people write can be hard. I think this should be better documented in the GKE guides. As someone who is responsible for the backend services but isn't that much familiar with proxies and load balancing configuration, this can be an unnecessarily time consuming endeavor.
 
-Maybe if I had read things more carefully I would have realized this before. But if you're having the same problem as me (`failed_to_connect_to_backend`), there you go: **just do HTTPS all the way, and use a self-signed certificate on the deployment**. 
+Maybe if I had read things more carefully I would have realized this before. But if you're having the same problem as me (`failed_to_connect_to_backend`), there you go: **just do HTTPS all the way, and use a self-signed certificate on the deployment**.
 Another possible fix is to use nginx, which offers far more flexibility and tons of configurations, and `cert-manager.io` to automatically apply SSL certificates to the ingress, just be aware that this can be overwhelming for a small and inexperienced team.
 
 I hope no one wastes 3 days on this. Have a good day!

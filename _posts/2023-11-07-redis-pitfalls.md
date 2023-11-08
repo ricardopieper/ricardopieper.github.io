@@ -23,7 +23,7 @@ In the backend, we had multiple servers, and each client could be connected in a
 
 The squad was represented in Redis as a single key, something like this:
 
-```
+```json
 SET squad_82506af6-2046-4688-a472-b31569ff974e {
   "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf" //the User ID of the squad leader,
   "GameMode": "DuoBattleRoyale",
@@ -59,7 +59,7 @@ This is how the invitee would behave:
 1. Send the `InviteAccepted` event asynchronously, fire and forget
 
 1. Without waiting for the leader to add themselves, we get the current squad data:
-    ```
+    ```json
     GET squad_82506af6-2046-4688-a472-b31569ff974e
     ```
 
@@ -69,7 +69,7 @@ This is how the invitee would behave:
 
 1. Set the new squad data:
 
-    ```
+    ```json
     SET squad_82506af6-2046-4688-a472-b31569ff974e {
       "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf"
       "GameMode": "DuoBattleRoyale",
@@ -85,62 +85,67 @@ This is how the invitee would behave:
 So far so good. How about the leader?
 
 1. Receive the `InviteAccepted` event
-2. `GET squad_82506af6-2046-4688-a472-b31569ff974e`
-3. Deserialize, add themselves to the Members section (done in C#)
-4. Set the new squad data:
 
-```
-SET squad_82506af6-2046-4688-a472-b31569ff974e {
-  "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf"
-  "GameMode": "DuoBattleRoyale",
-  "Members": [
-    {
-      "UserId": "82506af6-2046-4688-a472-b31569ff974e",
-      ...
-    },
-    {
-      "UserId": "155afdaa-6b2d-4478-b10a-05094375f1bf",
-      ...
+1. `GET squad_82506af6-2046-4688-a472-b31569ff974e`
+
+1. Deserialize, add themselves to the Members section (done in C#)
+
+1. Set the new squad data:
+
+    ```json
+    SET squad_82506af6-2046-4688-a472-b31569ff974e {
+      "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf"
+      "GameMode": "DuoBattleRoyale",
+      "Members": [
+        {
+          "UserId": "82506af6-2046-4688-a472-b31569ff974e",
+          ...
+        },
+        {
+          "UserId": "155afdaa-6b2d-4478-b10a-05094375f1bf",
+          ...
+        }
+      ]
     }
-  ]
-}
-```
+    ```
 
 Notice that in this example, it just worked. However, we got very lucky: the leader ran `GET squad_82506af6-2046-4688-a472-b31569ff974e` **after** the invitee added themselves. What if the invitee takes a bit longer to run, making both run `GET squad_82506af6-2046-4688-a472-b31569ff974e` exactly at the same time?
 
 
 In that case, both would run `GET squad_82506af6-2046-4688-a472-b31569ff974e` and see the same state:
-
+```json
     {
       "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf"
       "GameMode": "DuoBattleRoyale",
       "Members": []
     }
+```
 
 Both would add themselves to that json:
-
+```json
+{
+  "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf"
+  "GameMode": "DuoBattleRoyale",
+  "Members": [
     {
-      "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf"
-      "GameMode": "DuoBattleRoyale",
-      "Members": [
-        {
-              "UserId": "<any of them, but not both>",
-        }
-      ]
+          "UserId": "<either the leader or invitee>",
     }
+  ]
+}
+```
 
 And then both would store that key to Redis. Who will win that race?
-
+```json
+{
+  "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf"
+  "GameMode": "DuoBattleRoyale",
+  "Members": [
     {
-      "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf"
-      "GameMode": "DuoBattleRoyale",
-      "Members": [
-        {
-              "UserId": "Maybe the leader won? who knows!",
-        }
-      ]
+          "UserId": "<Maybe the leader won? Maybe the invitee? Who knows!>",
     }
-
+  ]
+}
+```
 If you didn't understand the definition of a race condition, I hope that gives you an example beyond the basic multithreaded `x += 1` that is common to find in the internet.
 
 Turns out in this case we are storing way too much stuff in one key. We can rework this and separate the members from the general squad data.
@@ -162,22 +167,26 @@ That would make it just work. There's even an algorithm called [Redlock](https:/
 
 Let's get rid of the "Members" key in that JSON:
 
-    SET squad_82506af6-2046-4688-a472-b31569ff974e {
-      "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf"
-      "GameMode": "DuoBattleRoyale",
-      "MatchmakingStatus": "Waiting",
-      ...
-    }
+```json
+SET squad_82506af6-2046-4688-a472-b31569ff974e {
+  "SquadLeader": "155afdaa-6b2d-4478-b10a-05094375f1bf"
+  "GameMode": "DuoBattleRoyale",
+  "MatchmakingStatus": "Waiting",
+  ...
+}
+```
 
 Now, when the `InviteAccepted` event is sent or received, each member can then simply add themselves to a new `squadmembers` list. The invitee would simply send this command:
 
-
-    LPUSH squadmembers_82506af6-2046-4688-a472-b31569ff974e 82506af6-2046-4688-a472-b31569ff974e
-
+```redis
+LPUSH squadmembers_82506af6-2046-4688-a472-b31569ff974e 82506af6-2046-4688-a472-b31569ff974e
+```
 
 And the leader would send this command:
 
-    LPUSH squadmembers_82506af6-2046-4688-a472-b31569ff974e 155afdaa-6b2d-4478-b10a-05094375f1bf
+```redis
+LPUSH squadmembers_82506af6-2046-4688-a472-b31569ff974e 155afdaa-6b2d-4478-b10a-05094375f1bf
+```
 
 The commands are interpreted by Redis sequentially, the `LPUSH` behaves correctly and does not overwrite the previous data. Now both members are in the squad.
 
@@ -188,21 +197,25 @@ Rather than "too much data in one key", the main mistake here is thinking that, 
 
 That means you shouldn't read the whole data from Redis, modify it in the application code, and then write back.
 
-    [App]   var newCounter = redis.Get<int>("COUNTER") + 1
-    [Redis] GET counter (Suppose it returns 0)
-    [App]   redis.Set("COUNTER", newCounter)
-    [Redis] SET counter 1
+```csharp
+[App]   var newCounter = redis.Get<int>("COUNTER") + 1
+[Redis] GET counter (Suppose it returns 0)
+[App]   redis.Set("COUNTER", newCounter)
+[Redis] SET counter 1
+```
 
 This works if there's only a single user modifying this counter, but suppose there's more:
 
-    [User1] var newCounter = redis.Get<int>("COUNTER") + 1
-    [Redis] GET counter (Suppose it returns 0)
-    [User2] var newCounter = redis.Get<int>("COUNTER") + 1
-    [Redis] GET counter (returns 0)
-    [User1] redis.Set("COUNTER", newCounter)
-    [Redis] SET counter 1
-    [User2] redis.Set("COUNTER", newCounter)
-    [Redis] SET counter 1
+```csharp
+[User1] var newCounter = redis.Get<int>("COUNTER") + 1
+[Redis] GET counter (Suppose it returns 0)
+[User2] var newCounter = redis.Get<int>("COUNTER") + 1
+[Redis] GET counter (returns 0)
+[User1] redis.Set("COUNTER", newCounter)
+[Redis] SET counter 1
+[User2] redis.Set("COUNTER", newCounter)
+[Redis] SET counter 1
+```
 
 This makes the counter 1 instead of what we really want, which is 2. The solution is to use an atomic operation, like INCR:
 
@@ -224,16 +237,18 @@ Unfortunately, it's surprisingly hard for some newer developers to understand ho
 
 That system would not work for much longer if action wasn't be taken. It was also not a trivial problem to solve. A few months after we first saw it, COVID happened and rapidly the amount of users grew, so eventually it had to be solved or mitigated. I don't know what the solution was, but I'm fairly confident we had many keys such as these:
 
-    SET conversation_{userid} {
-      "status": "...",
-      "name": "...",
-      "email": "...",
-      "channel": "whatsapp",
-      ... many properties...
-      "lastMessage": {
-        ... a fairly big JSON here
-      }
-    }
+```json
+SET conversation_{userid} {
+  "status": "...",
+  "name": "...",
+  "email": "...",
+  "channel": "whatsapp",
+  ... many properties...
+  "lastMessage": {
+    ... a fairly big JSON here
+  }
+}
+```
 
 This key would be fetched in its entirety even when only a status was necessary. Therefore many KBs worth a data would be fetched instead of just a few bytes, increasing the I/O to staggering levels for that amount of users. One way to quickly mitigate this problem is to create a read-only Redis replica and do reads from that server, this way the chat control system doesn't affect the other parts of the whole system. IIRC, eventually the keys had some redesign to remove rarely used properties from the main keys.
 

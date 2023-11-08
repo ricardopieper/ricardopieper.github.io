@@ -41,15 +41,15 @@ To run code, we don't simply get input text and start running/compiling it. Mayb
 The lexer is the simplest part of the interpreter: it takes input strings and returns a stream/list of tokens.
 
 
-In the Rinha language, function declarations look like this:
+In the Rinha language, function declarations look like this (I'll be using JS syntax highlighting for Rinha examples):
 
-```
-let add = fn(x) { x + 1 }
+```js
+let add = fn(x) => { x + 1 };
 ```
 
 This is, of course, a function that just returns its parameter. A tokenizer could read this and return a list of the following tokens:
 
-```
+```rust
 [
   Token::LetKeyword,
   Token::Identifier("add"),
@@ -76,7 +76,7 @@ In 2023, only a madman would be satisfied with just the tokens, and then just in
 
 Anyway, at the end of parsing, you'll end up with a structure similar to this:
 
-```
+```rust
 LetExpression {
   name: "add",
   expression:
@@ -111,7 +111,7 @@ The Rinha Language
 
 Let's take a look at the Rinha language for a bit to understand how to run it.
 
-```
+```js
 let fib = fn (n) => {
   if (n < 2) {
     n
@@ -127,7 +127,7 @@ Rinha is a small dynamically typed functional language. Functions support recurs
 
 I also wrote a small program that tests some of the language features, except for strings:
 
-```
+```js
 let iter = fn (from, to, call, prev) => {
   if (from < to) {
     let res = call(from);
@@ -166,7 +166,7 @@ This was my benchmarking script for the rest of the competition. Turns out the f
 
 Just for curiosity, you can build lists in Rinha by using tuples: since tuples can have tuples inside them, you could have something like `(1, (2, (3, (4, "<nil>"))))` or something like that. You can also have maps using a clever closure trick:
 
-```
+```js
 let empty_map = fn(v) => {
     ("<KeyNotFound>", "undefined key " + v)
 };
@@ -192,7 +192,7 @@ The inner function `fn(v)` inside `set` takes the current map (represented by th
 
 It's interesting to see how powerful functional programming can be: this language does not have built-in types for lists or maps, and yet we can represent those concepts, albeit not in the most performant way. Nonetheless, this idea was used by one of the competitors to make a `meta rinha` program, which is an interpreter built in the Rinha language itself. In fact, the example above comes almost straight from the meta rinha program, I just changed the names. I used meta rinha to find bugs with closures in my interpreter. I think an interpreter that runs another interpreter is a good quick measure for correctness, everything else in the interpreter is simpler than closure handling. This is an example of a meta-rinha program:
 
-```
+```js
 let fac =
   (ExpLet, ("f", (
     (ExpLambda, ("x",
@@ -218,7 +218,7 @@ Also, bear in mind that I won't worry too much about memory leaks and memory con
 
 For the lambda compilation approach, suppose we need to compile a binary expression that loads a constant value and a variable, I would need this code:
 
-``````
+```rust
 
 pub type LambdaFunction = Box<dyn Fn(&mut ExecutionContext) -> Value>;
 
@@ -257,7 +257,7 @@ fn compile(&self, ast: &Term) -> LambdaFunction {
   }
 }
 
-``````
+```
 
 Instead of matching the AST at runtime, we try to pre-compile every decision that the tree walker would make. For instance,
 a regular treewalker would have no choice but to pattern-match every kind of operator (plus, multiply, minus, etc) at every execution of a binary operation. In our scenario, we already looked into it and determined we only need to do the dynamic type checking to ensure both sides are `Int`, and the operator + handler is returned directly.
@@ -268,7 +268,7 @@ The problem is: I didn't measure it in Rust. However, I did measure it in Ocaml 
 
 So I wrote the initial implementation and tried to run the perf.rinha file, here it is in case you don't want to scroll all the way back:
 
-```
+```js
 let iter = fn (from, to, call, prev) => {
   if (from < to) {
     let res = call(from);
@@ -322,7 +322,7 @@ The result was... underwhelming. Now we're slower than before, 35ms. This is bec
 
 To avoid every new frame needing a new big allocation, we need to make this process trivial. Therefore, I started tracking the variables in my global VM state:
 
-```
+```rust
 struct ExecutionContext {
   ...
   call_stack: Vec<CallFrame>,
@@ -337,7 +337,7 @@ This way, `variables` became a 2D vector in which the first dimension identifies
 To access the variable `from`, one just needs to to `self.variables[0].last().unwrap()`, and new call frames just need to push new values onto the respective indices for each variable. When a stack frame ends, we need to pop the values that were used, therefore, the call frame tracks which variables were pushed:
 
 
-```
+```rust
 struct CallFrame {
  ...
  pushed_vars: Vec<usize>
@@ -347,7 +347,7 @@ struct CallFrame {
 
 When we pop a frame, we read the pushed_vars and pop each variable:
 
-```
+```rust
 fn pop_frame(&self) {
   let frame = self.call_stack.pop().unwrap();
   for v in frame.pushed_vars {
@@ -364,7 +364,7 @@ That optimization brings us to 14ms, the fastest yet. That's a 204% improvement 
 
 Let's take a look at our fib function:
 
-```
+```js
 let fib = fn (n) => {
   if (n < 2) {
     n
@@ -389,7 +389,7 @@ This resulted in a 91% improvement from our last optimization, down to 7.4ms. We
 Let's take a look again at our Value enum:
 
 
-```
+```rust
 pub enum Value {
   Int(i32),
   Bool(bool),
@@ -407,7 +407,7 @@ Our `perf.rinha` creates a tuple, which results in 2 heap allocations. `Value` c
 
 Good news: `perf.rinha` allocates only `(i32, i32)` tuples. So here's the idea:
 
-```
+```rust
 pub enum Value {
   Int(i32),
   Bool(bool),
@@ -429,7 +429,7 @@ However, this is where the low-hanging fruit ends. My final result will be 1.55m
 
 This item will explain the implementation of Tail-Call optimization, but we won't gain much performance yet. At this point in the competition, I was worried about recursion. Let's take a look at the classical recursive Fibonacci algorithm again:
 
-```
+```js
 let fib = fn (n) => {
   if (n < 2) {
     n
@@ -447,7 +447,7 @@ This Fibonacci algorithm, as is, is not in tail call form. There's nothing I can
 
 However, in functional programming, you can just write your function in tail call form:
 
-```
+```js
 let fib_tc = fn (n, a, b) => {
   if (n == 0) {
     a
@@ -459,7 +459,7 @@ let fib_tc = fn (n, a, b) => {
 
 Whenever the last thing a function does is a call to itself, we can actually reuse the stack frame by transforming it into this format:
 
-```
+```js
 let fib_tc = fn (n, a, b) => {
   if (n == 0) {
     a
@@ -473,7 +473,7 @@ In this case, the compiler can apply a pre-processing step on the AST and wrap t
 
 Then at runtime, the interpreter does something like this, in pseudocode:
 
-```
+```js
 let result = call(fib_tc, ...);
 
 while (is_callable(result)) {
@@ -494,7 +494,7 @@ This resulted in no performance gain, but it's a nice feature... fear not, the t
 
 At this point, here's our full `Value` enum:
 
-```
+```rust
 pub struct Closure {
     pub callable_index: usize
 }
@@ -523,7 +523,7 @@ The benefit of NaN tagging comes when our language has support for double values
 
 Therefore, what I did was an emulation of 32-bit pointers in the most hacky way possible: Just indices on a Vec. My heap is really just a Vec. I store values in a `Vec` and use a `u32` index instead of `usize`. You can allocate at most ~4 billion tuples, ~4 billion strings, and ~4 billion closures in my interpreter... it's a price we pay for performance. This is the new definition:
 
-```
+```rust
 pub struct Closure {
     pub callable_index: u32,
     pub closure_env_index: u32
@@ -573,7 +573,7 @@ Some functions don't capture values outside of them. However, the interpreter st
 
 When we compile a function, we store it in a vector and pass a slice of this vector to the execution context:
 
-```
+```rust
 pub struct Closure {
     pub callable_index: usize,
     pub closure_env_index: usize
@@ -600,7 +600,7 @@ For closures, at this point, we are using `BTreeMaps`. Somewhere down the line I
 
 Therefore, at the beginning of the execution during instantiation of the `ExecutionContext`, for every callable we store a Closure that points to a non-existent `closure_env_index`, like `u32::MAX`. This points to a value that doesn't exist and would crash if used, but the fact that it tried to load a non-existing closure is a bug in our analysis step.
 
-```
+```rust
   let empty_closures = {
       let mut closures = vec![];
       for (i, _) in program.functions.iter().enumerate() {
@@ -630,7 +630,7 @@ Down to 2.1ms.
 So many optimizations done, everything must be running just fine, right? Well... it turns out I had some massive bugs regarding closures. Sometimes values weren't being loaded from where they should be. Basically, something like this would happen:
 
 
-```
+```js
 let y = 10;
 let f = fn() { y };
 let y = 20; //shadowed!
@@ -678,7 +678,7 @@ What happened in the pre-submission bugfix?
 
 Well, `let` statements became vectors instead of linked lists from the AST format. Because of that, bodies of functions and if statements had lists of expressions that had to be run like this:
 
-```
+```rust
 let all_statements = self.compile_exprs(body);
 Box::new(move |ec, frame| {
     let mut last = None;
@@ -691,7 +691,7 @@ Box::new(move |ec, frame| {
 
 It turns out this whole looping machinery causes a lot of overhead when we only have one simple expression that, in the end, just returns a variable or a literal value. If only we knew how many statements we had in the body, we could do something about it...
 
-```
+```rust
 fn join_lambdas(&mut self, mut lambdas: Vec<LambdaFunction>) -> LambdaFunction {
   if lambdas.len() == 1 {
       return lambdas.pop().unwrap();
@@ -711,7 +711,7 @@ With this change, `perf.rinha` barely changed, from 2.0ms to 1.9ms. However, fib
 
 Other loop-heavy code also got significantly faster. For instance, this code that counts to 2 billion:
 
-```
+```js
 let loop = fn (i, s) => {
    if (i == 0) {
      s
@@ -729,7 +729,7 @@ This used to run in 60 seconds and now runs in 47 seconds, rivaling the fastest 
 
 Whenever we build a lambda function, we do this:
 
-```
+```rust
   Box::new(move |ec| { ec.frame().stack_data.... /*do something with frame data*/ })
 ```
 
