@@ -224,16 +224,16 @@ Unfortunately, it's surprisingly hard for some newer developers to understand ho
 
 That system would not work for much longer if action wasn't be taken. It was also not a trivial problem to solve. A few months after we first saw it, COVID happened and rapidly the amount of users grew, so eventually it had to be solved or mitigated. I don't know what the solution was, but I'm fairly confident we had many keys such as these:
 
-  SET conversation_{userid} {
-    "status": "...",
-    "name": "Name of the user",
-    "email": "...",
-    "channel": "whatsapp",
-    ... many properties...
-    "lastMessage": {
-      ... a fairly big JSON here
+    SET conversation_{userid} {
+      "status": "...",
+      "name": "...",
+      "email": "...",
+      "channel": "whatsapp",
+      ... many properties...
+      "lastMessage": {
+        ... a fairly big JSON here
+      }
     }
-  }
 
 This key would be fetched in its entirety even when only a status was necessary. Therefore many KBs worth a data would be fetched instead of just a few bytes, increasing the I/O to staggering levels for that amount of users. One way to quickly mitigate this problem is to create a read-only Redis replica and do reads from that server, this way the chat control system doesn't affect the other parts of the whole system. IIRC, eventually the keys had some redesign to remove rarely used properties from the main keys.
 
