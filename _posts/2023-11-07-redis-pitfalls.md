@@ -11,15 +11,15 @@ pin: true
 
 Over many years, I've been using Redis for caching and as a "distributed data structure server". I love it. As an extremely lightweight in-memory database that Just Works™️, I've seen developers slap it onto a backend system as a caching system to make things go fast, reduce database load, or do distributed programming in some capacity.
 
-I really like Redis beyond the usual caching scenarios. If your system is responsible for a funcionality that needs temporary data to operate in a distributed manner without persisting data, it's great. You don't need a SQL database that could potentially be slow depending on what you're doing, or scheduling tasks onto a job queue to clean data after you're done. Redis has all of that, and also serves as a backend for job systems such as Quartz in Java or BullMQ in Node. Redis's documentation is also pretty good. All the commands are right in [this page](https://redis.io/commands/) and it's easy to locate the command you need.
+I really like Redis beyond the usual caching scenarios. If your system is responsible for a funcionality that needs temporary data to operate in a distributed manner without persistence, it's great. You don't need a SQL database that could potentially be slow depending on what you're doing, or scheduling tasks onto a job queue to clean data after you're done. Redis has all of that, and also serves as a backend for job systems such as Quartz in Java or BullMQ in Node. Redis's documentation is also pretty good. All the commands are right in [this page](https://redis.io/commands/) and it's easy to locate the command you need.
 
 Redis is amazing. But in this article I want to explore a bug I had where you need to be careful about how you store data in Redis and how you interact with it. This article requires some basic understanding of Redis to read. I will explore one of the bugs I saw in my carrer, but I had others that worked in a similar manner in other systems.
 
 # Too much data in one key
 
-When I started working at Monomyto Game Studios, one of the most annoying sporadic bugs was related to squad management. [Gunstars](https://gunstars.io/) is a battle royale top-down shooter game where you can join games in a squad or alone.  Sometimes, you would invite someone to a squad, the other person would accept, and only one of them would end up in the squad, while the other person would, IIRC, be left in an invalid state. They would be in a squad but the client wouldn't show them there.
+When I started working at Monomyto Game Studios, one of the most annoying sporadic bugs was related to squad management. [Gunstars](https://gunstars.io/) is a battle royale top-down shooter game where you can join games in a squad or alone.  Sometimes, you would invite someone to a squad, the other person would accept, and only one of them would end up in the squad, while the other person would, IIRC, be left in an invalid state. They would join the squad, their session data would say as much, but the client wouldn't show them there.
 
-In the backend, we would communicate between clients using MagicOnion. Both clients would listen to a message `InviteAccepted` (or something to that effect) and add themselves to the squad. The astute reader that does distributed programming on a daily basis (or even concurrent programming on a shared memory architecture) can spot a potential problem right there.
+In the backend, we had multiple servers, and each client could be connected in any of these servers. Inside the backend, the clients would communicate among themselves by sending messages. This was done using a framework called MagicOnion, but we don't need to go in depth in what MagicOnion does. Suffice to say, it made this communication easier. During the process of building a squad, both clients would add themselves to the same squad at the same time in Redis. The astute reader that does distributed programming on a daily basis (or even just concurrent programming on a shared memory architecture) can spot a potential problem right there.
 
 The squad was represented in Redis as a single key, something like this:
 
@@ -213,10 +213,34 @@ This makes the counter 1 instead of what we really want, which is 2. The solutio
 
 You can't predict what a specific user's `newCounter` will be, but they will increase monotonically.
 
+Network traffic
+===============
+
+Storing too much data in one key is also bad for performance. Redis can handle many thousands of operations per second, maybe millions. But what happens when you store too much stuff in one key?
+
+One possible problem is too much network I/O, to the point of saturating the network capabilities of the server. When I worked on a chat system, we had a module with a "main loop" responsible for handing out chats to customer service agents, using an algorithm that relied on Redis heavily. Even when we had only a couple thousand users, I saw that system doing 150MB/s and still somehow working! I didn't work on that system directly but we all could see the amount of data in the monitoring systems.
+
+Unfortunately, it's surprisingly hard for some newer developers to understand how much data there is in just 1MB of pure text. And no, that Redis instance was *not* streaming video, audio or transferring images. It was purely chat and some control messages for the handout of conversations for agents. Some estimates I found on the internet tell me 1MB is like a book with 500 pages. That's a lot! Imagine 150 of these books per second.
+
+That system would not work for much longer if action wasn't be taken. It was also not a trivial problem to solve. A few months after we first saw it, COVID happened and rapidly the amount of users grew, so eventually it had to be solved or mitigated. I don't know what the solution was, but I'm fairly confident we had many keys such as these:
+
+  SET conversation_{userid} {
+    "status": "...",
+    "name": "Name of the user",
+    "email": "...",
+    "channel": "whatsapp",
+    ... many properties...
+    "lastMessage": {
+      ... a fairly big JSON here
+    }
+  }
+
+This key would be fetched in its entirety even when only a status was necessary. Therefore many KBs worth a data would be fetched instead of just a few bytes, increasing the I/O to staggering levels for that amount of users. One way to quickly mitigate this problem is to create a read-only Redis replica and do reads from that server, this way the chat control system doesn't affect the other parts of the whole system. IIRC, eventually the keys had some redesign to remove rarely used properties from the main keys.
+
 
 Conclusion
 ==========
 
-Hopefully I demonstrated the concept of data races and atomicity in Redis in a way you can understand. Usually these concepts are only explained with shared memory architectures, with mutexes and so on. Turns out Redis does no magic and you will shoot yourself in the foot if you don't think about these concepts.
+Hopefully I demonstrated the concept of data races and atomicity in Redis in a way you can understand. Usually these concepts are only explained with shared memory architectures, with mutexes and so on. Turns out Redis does no magic and you will shoot yourself in the foot if you don't think about these concepts. I also hopefully explained the network traffic problem well enough so that you really think about what you're storing in Redis and how much of that you need on the hot paths of your system.
 
-If two users can modify a key at the exact same time, they eventually will, and the ensuing explosion will break your system in the worst way possible. That was a bit dramatic.
+Here's a line adapted from Murphy's Law: If two users can modify a key at the exact same time, they eventually will, and the ensuing explosion will break your system in the worst way possible. That was a bit dramatic.
